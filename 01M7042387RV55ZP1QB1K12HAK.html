@@ -1,0 +1,457 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Vendor Onboarding – Noris Werbung GmbH (Localhost Preview)</title>
+
+  <!-- Bootstrap 4 & Font Awesome 4 (für Form.io & fa-android Icons) -->
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap@4.6.2/dist/css/bootstrap.min.css" />
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/4.7.0/css/font-awesome.min.css" />
+
+  <!-- Form.io Full CSS -->
+  <link rel="stylesheet" href="https://cdn.form.io/formiojs/formio.full.min.css" />
+
+  <style>
+    body {
+      background-color: #f4f6f9;
+      padding: 32px 16px;
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+    }
+    .page-wrapper {
+      max-width: 980px;
+      margin: 0 auto;
+      background: #ffffff;
+      border-radius: 10px;
+      box-shadow: 0 4px 20px rgba(0, 0, 0, 0.06);
+      padding: 32px 36px 48px 36px;
+    }
+    .panel-heading, .card-header {
+      background-color: #f8f9fa !important;
+      border-bottom: 1px solid #e9ecef !important;
+    }
+    #submission-output {
+      display: none;
+      margin-top: 28px;
+      background: #1e1e1e;
+      color: #d4d4d4;
+      padding: 16px;
+      border-radius: 6px;
+      font-size: 13px;
+      overflow-x: auto;
+    }
+  </style>
+</head>
+<body>
+  <div class="page-wrapper">
+    <div id="formio"></div>
+    <pre id="submission-output"></pre>
+  </div>
+
+  <!-- Form.io Full JS -->
+  <script src="https://cdn.form.io/formiojs/formio.full.min.js"></script>
+
+  <script>
+    // 1. Dein originales Form.io Container-Schema
+    const containerComponent = {
+      "key": "container",
+      "type": "container",
+      "input": true,
+      "label": "Container",
+      "tableView": false,
+      "components": [
+        {
+          "key": "hiddenStyleHelper",
+          "type": "textfield",
+          "input": true,
+          "label": "Style Helper (Hidden)",
+          "hidden": true,
+          "tableView": false,
+          "applyMaskOn": "change",
+          "customConditional": "/* ============================================================\n   VENDOR ONBOARDING — CONFIDENCE-BASED STYLE INJECTOR\n   Each *_confidence field holds a numeric value 0.0 – 1.0\n   supplied by the LLM pipeline before the form opens.\n\n   Thresholds:\n     >= 0.80       → GREEN  (high confidence, validated)\n     0.50 – 0.79  → YELLOW (low confidence, Irmi should check)\n     < 0.50        → RED   (very low / failed, must review)\n     empty / NaN   → GREY  (not yet evaluated)\n   ============================================================ */\n\nvar styleId = 'vendor-onboarding-styles';\nvar d = (typeof row !== 'undefined' && row) || (data && data.container) || data || {};\n\nfunction confidenceColor(raw) {\n  var val = parseFloat(raw);\n  if (isNaN(val)) return { border: '#aaaaaa', bg: '#f7f7f7', icon: '#aaaaaa' };\n  if (val >= 0.80) return { border: '#2fb380', bg: '#f3faf7', icon: '#2fb380' };\n  if (val >= 0.50) return { border: '#f5a623', bg: '#fff9f0', icon: '#f5a623' };\n  return              { border: '#e35a5a', bg: '#fff5f5', icon: '#e35a5a' };\n}\n\nvar fields = [\n  { key: 'name',            conf: d.name_confidence            },\n  { key: 'searchAlias',     conf: d.searchAlias_confidence     },\n  { key: 'address',         conf: d.address_confidence         },\n  { key: 'houseNo',         conf: d.houseNo_confidence         },\n  { key: 'postalCode',      conf: d.postalCode_confidence      },\n  { key: 'city',            conf: d.city_confidence            },\n  { key: 'country',         conf: d.country_confidence         },\n  { key: 'phone',           conf: d.phone_confidence           },\n  { key: 'email',           conf: d.email_confidence           },\n  { key: 'vatId',           conf: d.vatId_confidence           },\n  { key: 'crNo',            conf: d.crNo_confidence            },\n  { key: 'taxnumber',       conf: d.taxnumber_confidence       },\n  { key: 'registerAddress', conf: d.registerAddress_confidence },\n  { key: 'legalForm',       conf: d.legalForm_confidence       },\n  { key: 'iban',            conf: d.iban_confidence            },\n  { key: 'accountHolder',   conf: d.accountHolder_confidence   },\n  { key: 'bankCode',        conf: d.bankCode_confidence        },\n  { key: 'bankAccount',     conf: d.bankAccount_confidence     },\n  { key: 'bankCountry',     conf: d.bankCountry_confidence     }\n];\n\nvar existing = document.getElementById(styleId);\nif (existing) { existing.remove(); }\n\nvar css = [\n  '.formio-component .input-group { border-radius: 6px !important; border: 1.5px solid #ccc !important; overflow: hidden; background-color: white !important; }',\n  '.formio-component .form-control { border: none !important; background-color: transparent !important; box-shadow: none !important; }',\n  '.formio-component .input-group-addon { border: none !important; background-color: transparent !important; padding-right: 0 !important; font-size: 1.1em; }',\n  '.btn-primary { background-color: #f0f0f0 !important; border: 1px solid #d1d1d1 !important; color: #777 !important; padding: 8px 30px !important; float: right; }'\n].join(' ');\n\nfields.forEach(function(f) {\n  var c = confidenceColor(f.conf);\n  css += ' .formio-component-' + f.key + ' .input-group { border-color: ' + c.border + ' !important; background-color: ' + c.bg + ' !important; }';\n  css += ' .formio-component-' + f.key + ' i { color: ' + c.icon + ' !important; }';\n});\n\nvar el = document.createElement('style');\nel.id = styleId;\nel.innerHTML = css;\ndocument.head.appendChild(el);\n\nshow = false;",
+          "validateWhenHidden": false
+        },
+        {
+          "key": "telekomHeader",
+          "tag": "div",
+          "type": "htmlelement",
+          "attrs": [{ "attr": "", "value": "" }],
+          "input": false,
+          "label": "HTML",
+          "content": "<div style='display: flex; align-items: center; gap: 15px; margin-bottom: 20px;'><img src='https://upload.wikimedia.org/wikipedia/commons/5/55/Celonis_Logo_2025.jpg' style='width: 120px;' /><div><h2 style='color: #000000; margin: 0;'>Review Request - Vendor Onboarding</h2><p style='margin: 5px 0 0 0;'>Please verify the vendor details below. You may edit any field directly if the extracted information requires correction.</p></div></div>",
+          "tableView": false,
+          "refreshOnChange": false
+        },
+        {
+          "key": "legendBar",
+          "tag": "div",
+          "type": "htmlelement",
+          "input": false,
+          "label": "HTML",
+          "content": "<div style='display:flex; gap:20px; flex-wrap:wrap; align-items:center; font-size:13px; color:#555; background:#fafafa; border:1px solid #eee; border-radius:6px; padding:10px 16px; margin-bottom:18px;'><span style='font-weight:600; margin-right:4px;'>AI Confidence:</span><span style='display:flex;align-items:center;gap:6px;'><span style='display:inline-block;width:12px;height:12px;border-radius:50%;background:#2fb380;'></span>High (&ge; 80%)</span><span style='display:flex;align-items:center;gap:6px;'><span style='display:inline-block;width:12px;height:12px;border-radius:50%;background:#f5a623;'></span>Low (50–79%) — please review</span><span style='display:flex;align-items:center;gap:6px;'><span style='display:inline-block;width:12px;height:12px;border-radius:50%;background:#e35a5a;'></span>Very low (&lt; 50%) — correction required</span></div>",
+          "tableView": false
+        },
+        {
+          "key": "contactDetailsPanel",
+          "type": "panel",
+          "input": false,
+          "label": "Contact Details",
+          "title": "<strong>📍 Contact Details</strong>",
+          "tableView": false,
+          "components": [
+            {
+              "key": "contactRow1",
+              "type": "columns",
+              "input": false,
+              "label": "Columns",
+              "columns": [
+                {
+                  "pull": 0, "push": 0, "size": "md", "width": 6, "offset": 0, "currentWidth": 6,
+                  "components": [
+                    { "key": "name_confidence", "type": "textfield", "input": true, "label": "Name — Confidence", "hidden": true, "tableView": false },
+                    { "key": "name", "type": "textfield", "input": true, "label": "Name", "prefix": "<i class='fa fa-android'></i>", "tableView": true }
+                  ]
+                },
+                {
+                  "pull": 0, "push": 0, "size": "md", "width": 6, "offset": 0, "currentWidth": 6,
+                  "components": [
+                    { "key": "searchAlias_confidence", "type": "textfield", "input": true, "label": "Search Alias — Confidence", "hidden": true, "tableView": false },
+                    { "key": "searchAlias", "type": "textfield", "input": true, "label": "Search Alias", "prefix": "<i class='fa fa-android'></i>", "tableView": true }
+                  ]
+                }
+              ],
+              "tableView": false
+            },
+            {
+              "key": "contactRow2",
+              "type": "columns",
+              "input": false,
+              "label": "Columns",
+              "columns": [
+                {
+                  "pull": 0, "push": 0, "size": "md", "width": 6, "offset": 0, "currentWidth": 6,
+                  "components": [
+                    { "key": "address_confidence", "type": "textfield", "input": true, "label": "Address — Confidence", "hidden": true, "tableView": false },
+                    { "key": "address", "type": "textfield", "input": true, "label": "Address", "prefix": "<i class='fa fa-android'></i>", "tableView": true }
+                  ]
+                },
+                {
+                  "pull": 0, "push": 0, "size": "md", "width": 6, "offset": 0, "currentWidth": 6,
+                  "components": [
+                    { "key": "houseNo_confidence", "type": "textfield", "input": true, "label": "House No. — Confidence", "hidden": true, "tableView": false },
+                    { "key": "houseNo", "type": "textfield", "input": true, "label": "House No.", "prefix": "<i class='fa fa-android'></i>", "tableView": true }
+                  ]
+                }
+              ],
+              "tableView": false
+            },
+            {
+              "key": "contactRow3",
+              "type": "columns",
+              "input": false,
+              "label": "Columns",
+              "columns": [
+                {
+                  "pull": 0, "push": 0, "size": "md", "width": 4, "offset": 0, "currentWidth": 4,
+                  "components": [
+                    { "key": "postalCode_confidence", "type": "textfield", "input": true, "label": "Postal Code — Confidence", "hidden": true, "tableView": false },
+                    { "key": "postalCode", "type": "textfield", "input": true, "label": "Postal Code", "prefix": "<i class='fa fa-android'></i>", "tableView": true }
+                  ]
+                },
+                {
+                  "pull": 0, "push": 0, "size": "md", "width": 4, "offset": 0, "currentWidth": 4,
+                  "components": [
+                    { "key": "city_confidence", "type": "textfield", "input": true, "label": "City — Confidence", "hidden": true, "tableView": false },
+                    { "key": "city", "type": "textfield", "input": true, "label": "City", "prefix": "<i class='fa fa-android'></i>", "tableView": true }
+                  ]
+                },
+                {
+                  "size": "md", "width": 4, "currentWidth": 4,
+                  "components": [
+                    { "key": "country_confidence", "type": "textfield", "input": true, "label": "Country — Confidence", "hidden": true, "tableView": false },
+                    { "key": "country", "type": "textfield", "input": true, "label": "Country", "prefix": "<i class='fa fa-android'></i>", "tableView": true }
+                  ]
+                }
+              ],
+              "tableView": false
+            },
+            {
+              "key": "contactRow4",
+              "type": "columns",
+              "input": false,
+              "label": "Columns",
+              "columns": [
+                {
+                  "pull": 0, "push": 0, "size": "md", "width": 6, "offset": 0, "currentWidth": 6,
+                  "components": [
+                    { "key": "phone_confidence", "type": "textfield", "input": true, "label": "Phone — Confidence", "hidden": true, "tableView": false },
+                    { "key": "phone", "type": "textfield", "input": true, "label": "Phone", "prefix": "<i class='fa fa-android'></i>", "tableView": true }
+                  ]
+                },
+                {
+                  "pull": 0, "push": 0, "size": "md", "width": 6, "offset": 0, "currentWidth": 6,
+                  "components": [
+                    { "key": "email_confidence", "type": "textfield", "input": true, "label": "Email — Confidence", "hidden": true, "tableView": false },
+                    { "key": "email", "type": "textfield", "input": true, "label": "Email", "prefix": "<i class='fa fa-android'></i>", "tableView": true }
+                  ]
+                }
+              ],
+              "tableView": false
+            }
+          ]
+        },
+        {
+          "key": "taxLegalPanel",
+          "type": "panel",
+          "input": false,
+          "label": "Tax & Legal",
+          "title": "<strong>⚖️ Tax & Legal</strong>",
+          "tableView": false,
+          "components": [
+            {
+              "key": "taxRow1",
+              "type": "columns",
+              "input": false,
+              "label": "Columns",
+              "columns": [
+                {
+                  "pull": 0, "push": 0, "size": "md", "width": 4, "offset": 0, "currentWidth": 4,
+                  "components": [
+                    { "key": "vatId_confidence", "type": "textfield", "input": true, "label": "VAT ID — Confidence", "hidden": true, "tableView": false },
+                    { "key": "vatId", "type": "textfield", "input": true, "label": "VAT ID", "prefix": "<i class='fa fa-android'></i>", "tableView": true }
+                  ]
+                },
+                {
+                  "pull": 0, "push": 0, "size": "md", "width": 4, "offset": 0, "currentWidth": 4,
+                  "components": [
+                    { "key": "crNo_confidence", "type": "textfield", "input": true, "label": "CR No. — Confidence", "hidden": true, "tableView": false },
+                    { "key": "crNo", "type": "textfield", "input": true, "label": "CR No.", "prefix": "<i class='fa fa-android'></i>", "tableView": true }
+                  ]
+                },
+                {
+                  "size": "md", "width": 4, "currentWidth": 4,
+                  "components": [
+                    { "key": "taxnumber_confidence", "type": "textfield", "input": true, "label": "Tax Number — Confidence", "hidden": true, "tableView": false },
+                    { "key": "taxnumber", "type": "textfield", "input": true, "label": "Tax Number", "prefix": "<i class='fa fa-android'></i>", "tableView": true }
+                  ]
+                }
+              ],
+              "tableView": false
+            },
+            {
+              "key": "taxRow2",
+              "type": "columns",
+              "input": false,
+              "label": "Columns",
+              "columns": [
+                {
+                  "pull": 0, "push": 0, "size": "md", "width": 6, "offset": 0, "currentWidth": 6,
+                  "components": [
+                    { "key": "registerAddress_confidence", "type": "textfield", "input": true, "label": "Register Address — Confidence", "hidden": true, "tableView": false },
+                    { "key": "registerAddress", "type": "textfield", "input": true, "label": "Register Address", "prefix": "<i class='fa fa-android'></i>", "tableView": true }
+                  ]
+                },
+                {
+                  "pull": 0, "push": 0, "size": "md", "width": 6, "offset": 0, "currentWidth": 6,
+                  "components": [
+                    { "key": "legalForm_confidence", "type": "textfield", "input": true, "label": "Legal Form — Confidence", "hidden": true, "tableView": false },
+                    { "key": "legalForm", "type": "textfield", "input": true, "label": "Legal Form", "prefix": "<i class='fa fa-android'></i>", "tableView": true }
+                  ]
+                }
+              ],
+              "tableView": false
+            }
+          ]
+        },
+        {
+          "key": "bankingPaymentsPanel",
+          "type": "panel",
+          "input": false,
+          "label": "Banking & Payments",
+          "title": "<strong>💳 Banking & Payments</strong>",
+          "tableView": false,
+          "components": [
+            {
+              "key": "bankingRow1",
+              "type": "columns",
+              "input": false,
+              "label": "Columns",
+              "columns": [
+                {
+                  "pull": 0, "push": 0, "size": "md", "width": 6, "offset": 0, "currentWidth": 6,
+                  "components": [
+                    { "key": "iban_confidence", "type": "textfield", "input": true, "label": "IBAN — Confidence", "hidden": true, "tableView": false },
+                    { "key": "iban", "type": "textfield", "input": true, "label": "IBAN", "prefix": "<i class='fa fa-android'></i>", "tableView": true }
+                  ]
+                },
+                {
+                  "pull": 0, "push": 0, "size": "md", "width": 6, "offset": 0, "currentWidth": 6,
+                  "components": [
+                    { "key": "accountHolder_confidence", "type": "textfield", "input": true, "label": "Account Holder — Confidence", "hidden": true, "tableView": false },
+                    { "key": "accountHolder", "type": "textfield", "input": true, "label": "Account Holder", "prefix": "<i class='fa fa-android'></i>", "tableView": true }
+                  ]
+                }
+              ],
+              "tableView": false
+            },
+            {
+              "key": "bankingRow2",
+              "type": "columns",
+              "input": false,
+              "label": "Columns",
+              "columns": [
+                {
+                  "pull": 0, "push": 0, "size": "md", "width": 4, "offset": 0, "currentWidth": 4,
+                  "components": [
+                    { "key": "bankCode_confidence", "type": "textfield", "input": true, "label": "Bank Code — Confidence", "hidden": true, "tableView": false },
+                    { "key": "bankCode", "type": "textfield", "input": true, "label": "Bank Code", "prefix": "<i class='fa fa-android'></i>", "tableView": true }
+                  ]
+                },
+                {
+                  "pull": 0, "push": 0, "size": "md", "width": 4, "offset": 0, "currentWidth": 4,
+                  "components": [
+                    { "key": "bankAccount_confidence", "type": "textfield", "input": true, "label": "Bank Account — Confidence", "hidden": true, "tableView": false },
+                    { "key": "bankAccount", "type": "textfield", "input": true, "label": "Bank Account", "prefix": "<i class='fa fa-android'></i>", "tableView": true }
+                  ]
+                },
+                {
+                  "size": "md", "width": 4, "currentWidth": 4,
+                  "components": [
+                    { "key": "bankCountry_confidence", "type": "textfield", "input": true, "label": "Bank Country — Confidence", "hidden": true, "tableView": false },
+                    { "key": "bankCountry", "type": "textfield", "input": true, "label": "Bank Country", "prefix": "<i class='fa fa-android'></i>", "tableView": true }
+                  ]
+                }
+              ],
+              "tableView": false
+            }
+          ]
+        },
+        {
+          "key": "signaturePanel",
+          "type": "panel",
+          "input": false,
+          "label": "Vendor Declaration & Acknowledgment",
+          "title": "<strong>✍️ Vendor Declaration & Acknowledgment</strong>",
+          "tableView": false,
+          "components": [
+            {
+              "key": "declarationCheckbox",
+              "mask": false,
+              "type": "checkbox",
+              "input": true,
+              "label": "I hereby confirm that the information provided is correct and I agree to the Deutsche Telekom Supplier Code of Conduct and Data Privacy requirements.",
+              "validate": { "required": true },
+              "tableView": false,
+              "defaultValue": false,
+              "validateWhenHidden": false
+            },
+            {
+              "key": "signature",
+              "type": "signature",
+              "input": true,
+              "label": "Authorized Representative Signature",
+              "validate": { "required": true },
+              "tableView": false
+            }
+          ]
+        }
+      ],
+      "validateWhenHidden": false
+    };
+
+    // 2. Recherchierte Daten der Noris Werbung GmbH (noriswerbung.de / Handelsregister Fürth)
+    const norisWerbungData = {
+      name: "Noris Werbung GmbH",
+      name_confidence: "0.98",
+
+      searchAlias: "NORIS WERBUNG",
+      searchAlias_confidence: "0.75", // Gelb: abgeleiteter Suchbegriff
+
+      address: "Hafenstraße",
+      address_confidence: "0.97",
+
+      houseNo: "37",
+      houseNo_confidence: "0.97",
+
+      postalCode: "90768",
+      postalCode_confidence: "0.99",
+
+      city: "Fürth",
+      city_confidence: "0.99",
+
+      country: "Germany",
+      country_confidence: "0.99",
+
+      phone: "+49 911 9712757",
+      phone_confidence: "0.96",
+
+      email: "service@noriswerbung.de",
+      email_confidence: "0.98",
+
+      vatId: "",
+      vatId_confidence: "0.62", // Gelb: Im Impressum nicht aufgeführt, bitte prüfen
+
+      crNo: "HRB 7843",
+      crNo_confidence: "0.95",
+
+      taxnumber: "218/133/70198",
+      taxnumber_confidence: "0.96",
+
+      registerAddress: "Amtsgericht Fürth, Hafenstraße 37, 90768 Fürth",
+      registerAddress_confidence: "0.88",
+
+      legalForm: "GmbH",
+      legalForm_confidence: "0.99",
+
+      // Bankdaten sind öffentlich nicht im Impressum hinterlegt -> Rot (< 0.50) zur manuellen Ergänzung
+      iban: "",
+      iban_confidence: "0.20",
+
+      accountHolder: "Noris Werbung GmbH",
+      accountHolder_confidence: "0.85",
+
+      bankCode: "",
+      bankCode_confidence: "0.25",
+
+      bankAccount: "",
+      bankAccount_confidence: "0.25",
+
+      bankCountry: "Germany",
+      bankCountry_confidence: "0.90"
+    };
+
+    // 3. Form.io initialisieren & Daten injizieren
+    Formio.createForm(document.getElementById("formio"), {
+      components: [
+        containerComponent,
+        {
+          type: "button",
+          action: "submit",
+          label: "Submit Review",
+          theme: "primary"
+        }
+      ]
+    }).then(function (form) {
+      form.submission = {
+        data: {
+          container: norisWerbungData
+        }
+      };
+
+      // Falls hiddenStyleHelper wegen hidden:true beim Initial-Render übersprungen wird,
+      // werten wir das Custom-Conditional direkt mit aus:
+      const helper = form.getComponent("hiddenStyleHelper");
+      if (helper && helper.component && helper.component.customConditional) {
+        const fn = new Function("data", "row", helper.component.customConditional);
+        fn(form.submission.data, norisWerbungData);
+      }
+
+      form.on("submit", function (submission) {
+        const out = document.getElementById("submission-output");
+        out.style.display = "block";
+        out.textContent = JSON.stringify(submission.data, null, 2);
+      });
+    });
+  </script>
+</body>
+</html>
